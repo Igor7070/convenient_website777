@@ -1,48 +1,31 @@
-package com.example.parsing_vacancies.controller;
+package com.example.parsing_vacancies.controller.telegram;
 
 import com.example.parsing_vacancies.model.Vacancy;
 import com.example.parsing_vacancies.model.resume.Education;
 import com.example.parsing_vacancies.model.resume.Resume;
 import com.example.parsing_vacancies.model.resume.WorkExperience;
-import com.example.parsing_vacancies.repo.VacancyRepository;
+import com.example.parsing_vacancies.model.telegram.UserData;
 import com.example.parsing_vacancies.service.OpenAIService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-@Controller
-public class ResumeController {
+@Component
+public class TelegramCreateResume {
     @Autowired
-    private OpenAIService openAIService;
-    @Autowired
-    private VacancyRepository vacancyRepository;
+    private static OpenAIService openAIService;
 
     private static Map<Character, String> transliterationMap = new HashMap<>();
 
@@ -81,7 +64,7 @@ public class ResumeController {
         transliterationMap.put('ю', "yu");
         transliterationMap.put('я', "ya");
 
-        // Добавление заглавных букв
+        // Добавьте заглавные буквы
         transliterationMap.put('А', "A");
         transliterationMap.put('Б', "B");
         transliterationMap.put('В', "V");
@@ -116,147 +99,12 @@ public class ResumeController {
         transliterationMap.put('Ю', "Yu");
         transliterationMap.put('Я', "Ya");
     }
-    private static String responceTimeVar = "---\n" +
-            "\n" +
-            "**Резюме**\n" +
-            "\n" +
-            "**Алишер Балибурды Магоммедов**\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "**Контактная информация:**\n" +
-            "- **Телефон:** +38 (077) 127 99 00\n" +
-            "- **Электронная почта:** ijijij7070@gmail.com\n" +
-            "- **Город:** Киев\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "**Цель поиска работы:**\n" +
-            "Рост, развитие и карьера.\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "**Образование:**\n" +
-            "\n" +
-            "- **Киевский Политехнический Институт**\n" +
-            "  - **Специальность:** Автоматика\n" +
-            "  - **Годы обучения:** 1995-2001\n" +
-            "\n" +
-            "- **КИСИ (Киевский Институт Строительства и Архитектуры)**\n" +
-            "  - **Специальность:** Экономика\n" +
-            "  - **Годы обучения:** 2002-2007\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "**Опыт работы:**\n" +
-            "\n" +
-            "- **РомТорг**\n" +
-            "  - **Должность:** Менеджер\n" +
-            "  - **Период работы:** 2007-2010\n" +
-            "  - **Обязанности:**\n" +
-            "    - Управление продажами и взаимодействие с клиентами\n" +
-            "    - Разработка и внедрение стратегий продаж\n" +
-            "\n" +
-            "- **ЧатырЕнерго**\n" +
-            "  - **Должность:** Инженер\n" +
-            "  - **Период работы:** 2010-2015\n" +
-            "  - **Обязанности:**\n" +
-            "    - Проектирование и сборка шкафов автоматики для технологических процессов\n" +
-            "    - Поддержка существующих систем автоматизации\n" +
-            "\n" +
-            "- **Google**\n" +
-            "  - **Должность:** Программист\n" +
-            "  - **Период работы:** 2015-2023\n" +
-            "  - **Обязанности:**\n" +
-            "    - Разработка и поддержка программного обеспечения\n" +
-            "    - Работа с различными языками программирования и базами данных\n" +
-            "    - Участие в проектах по разработке ИИ\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "**Навыки и способности:**\n" +
-            "\n" +
-            "- **Технические навыки:**\n" +
-            "  - Опыт проектирования и сборки шкафов автоматики для технологических процессов, а также продаж\n" +
-            "  - Знания и опыт работы с языками программирования: Java, JavaScript, Python, C++, C#, Kotlin, HTML\n" +
-            "  - Опыт работы с SQL и базами данных\n" +
-            "  - Работа со множеством библиотек и фреймворков\n" +
-            "\n" +
-            "- **Мягкие навыки:**\n" +
-            "  - Способность развиваться и быстро решать задачи\n" +
-            "  - Отличные коммуникативные способности\n" +
-            "  - Умение работать в команде и самостоятельность в выполнении задач\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "**Языки:**\n" +
-            "- Английский - Продвинутый\n" +
-            "- Французский - Продвинутый\n" +
-            "- Немецкий - Средний\n" +
-            "- Фарси - Средний\n" +
-            "- Русский - Родной\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "**Личные достижения и награды:**\n" +
-            "- Золотая медаль на олимпиаде 2017 года по разработке ИИ в Евразии.\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "**Дополнительные сведения:**\n" +
-            "\n" +
-            "- **Участие в проектах:**\n" +
-            "  - Участие в международных проектах по разработке программного обеспечения и систем автоматизации\n" +
-            "  - Руководство небольшими командами разработчиков\n" +
-            "  - Участие в конференциях и семинарах по новым технологиям и разработке ПО\n" +
-            "\n" +
-            "- **Личные качества:**\n" +
-            "  - Высокая мотивация и целеустремленность\n" +
-            "  - Ответственность и внимание к деталям\n" +
-            "  - Гибкость и адаптивность в условиях быстро меняющейся среды\n" +
-            "\n" +
-            "- **Интересы и хобби:**\n" +
-            "  - Искусственный интеллект и машинное обучение\n" +
-            "  - Чтение литературы по новейшим технологиям\n" +
-            "  - Занятия спортом\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "**Ссылки на профессиональные профили:**\n" +
-            "- LinkedIn: [Ваш профиль LinkedIn]\n" +
-            "- GitHub: [Ваш профиль GitHub]\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "**Примечание:** Готов предоставить рекомендации по запросу.\n" +
-            "\n" +
-            "---\n" +
-            "\n" +
-            "С уважением,  \n" +
-            "Алишер Балибурды Магоммедов\n" +
-            "\n" +
-            "---\n";
 
-    @GetMapping("/convenient_job_search/createResume")
-    public String createResume(@ModelAttribute Resume resume, @RequestParam("vacancyId") Integer vacancyId, Model model) {
-        // Здесь вы можете обработать данные, например, сохранить в базу данных
-        model.addAttribute("title", "Формирование резюме");
-        model.addAttribute("resume", resume);
-        model.addAttribute("vacancyId", vacancyId);
-        System.out.println(vacancyId);
-        return "createResume"; // Название представления для подтверждения
-    }
-
-    @PostMapping("/convenient_job_search/readyResume")
-    public String readyResume(@ModelAttribute Resume resume, @RequestParam("vacancyId") Integer vacancyId,
-                              @RequestParam(name = "enableAI", required = false) boolean isChatGpt, Model model) {
-        model.addAttribute("title", "Готовое резюме");
-        model.addAttribute("vacancyId", vacancyId);
-        model.addAttribute("resume", resume);
-        Optional<Vacancy> vacancyOpt = vacancyRepository.findById(vacancyId);
-        ArrayList<Vacancy> res = new ArrayList<>();
-        vacancyOpt.ifPresent(res::add);
-        Vacancy vacancy = res.get(0);
+    protected static String createResume(UserData userData) {
+        int vacancyId = userData.getIdVacancyForResume();
+        Vacancy vacancy = userData.getReceivedVacancies().get(vacancyId - 1);
+        Resume resume = userData.getResume();
+        boolean isChatGpt = userData.isEnableAI();
 
         StringBuilder sbEducation = new StringBuilder();
         StringBuilder sbWorkExperience = new StringBuilder();
@@ -265,11 +113,11 @@ public class ResumeController {
             String specialization = resume.getEducationList().get(i).getSpecialization();
             String years = resume.getEducationList().get(i).getYears();
             String result = String.format("учебное заведение №%d - %s," +
-                    " специальность учебного заведения №%d - %s," +
-                    " годы обучения учебного заведения №%d - %s", i + 1, institutionName,
+                            " специальность учебного заведения №%d - %s," +
+                            " годы обучения учебного заведения №%d - %s", i + 1, institutionName,
                     i + 1, specialization, i + 1, years);
             if (i != resume.getEducationList().size() - 1) {
-               sbEducation.append(result).append("; ");
+                sbEducation.append(result).append("; ");
             } else {
                 sbEducation.append(result).append(".");
             }
@@ -291,11 +139,11 @@ public class ResumeController {
         }
 
         String finalResultQuery = String.format("Привет, создай мне резюме для вакансии %s," +
-                " компании %s, города %s. Мои данные: ФИО - %s, номер телефона - %s, город - %s" +
-                " электронная почта - %s, цель поиска работы - %s," +
-                " образование {%s}, опыт работы {%s}, " +
-                " я владею такими языками - %s, мои навыки и способности - %s," +
-                " мои личные достижения и награды - %s. Пусть в таком порядке будет:" +
+                        " компании %s, города %s. Мои данные: ФИО - %s, номер телефона - %s, город - %s" +
+                        " электронная почта - %s, цель поиска работы - %s," +
+                        " образование {%s}, опыт работы {%s}, " +
+                        " я владею такими языками - %s, мои навыки и способности - %s," +
+                        " мои личные достижения и награды - %s. Пусть в таком порядке будет:" +
                         " Контактная информация, Цель, Образование, Опыт работы," +
                         " Навыки и способности, Владение языками," +
                         " Личные достижения и награды." +
@@ -322,7 +170,6 @@ public class ResumeController {
         String addition = "";
         if (isChatGpt) {
             responce = openAIService.generateCompletion(finalResultQuery);
-            //responce = responceTimeVar;
             System.out.println(responce);
             purposeWork = extractPurposeWorkSection(responce);
             education = extractEducationSection(responce);
@@ -416,92 +263,12 @@ public class ResumeController {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        model.addAttribute("resumeFile", fileName);
 
         System.out.println("Имя файла: " + fileName);
-
-        return "readyResume";
+        return fileName;
     }
 
-    @Scheduled(fixedRate = 60000) // Каждую минуту
-    public void cleanUpOldFiles() {
-        Path directoryPath = Paths.get("src/main/resources/static/resumes");
-        File directory = directoryPath.toFile();
-        File[] files = directory.listFiles();
-
-        if (files != null) {
-            long currentTime = System.currentTimeMillis();
-            long expirationTime = TimeUnit.MINUTES.toMillis(3); // 20 минут
-
-            for (File file : files) {
-                if (!file.getName().equals("README.md") && currentTime - file.lastModified() > expirationTime) {
-                    try {
-                        Files.delete(file.toPath());
-                        System.out.println("Удалён файл: " + file.getName());
-                    } catch (IOException e) {
-                        System.out.println("Ошибка при удалении файла: " + file.getName());
-                    }
-                }
-            }
-        }
-    }
-
-    @GetMapping("/convenient_job_search/readyResume/file_resume")
-    public ResponseEntity<Resource> serveFile(@RequestParam String fileName,
-                                              HttpServletRequest request) {
-        // Отладочный вывод для проверки URL и переменной
-        System.out.println("URL запроса: " + request.getRequestURL());
-        System.out.println("fileName из URL: " + fileName); // Выводим имя файла
-
-        Path file = Paths.get("src/main/resources/static/resumes").resolve(fileName).normalize();
-        System.out.println("Полный путь к файлу: " + file.toString());
-
-        Resource resource = new FileSystemResource(file.toFile());
-
-        if (Files.isReadable(file)) {
-            System.out.println("Файл доступен для чтения.");
-        } else {
-            System.out.println("Файл недоступен для чтения.");
-        }
-
-        if (!resource.exists()) {
-            System.out.println("Файл не найден: " + file.toString());
-            return ResponseEntity.notFound().build();
-        }
-
-        try {
-            String encodedFileName = URLEncoder.encode(resource.getFilename(), StandardCharsets.UTF_8.toString());
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"")
-                    .body(resource);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    @GetMapping("/convenient_job_search/readyResume/sent")
-    public String showSentConfirmation(@RequestParam("vacancyId") Long vacancyId,
-                                       HttpSession session, Model model) {
-        System.out.println("метод showSentConfirmation сработал");
-        model.addAttribute("vacancyId", vacancyId);
-
-        // Извлечение сообщения из сессии
-        String message = (String) session.getAttribute("message");
-        model.addAttribute("message", message != null ? message : "Ошибка при отправке резюме!");
-
-        // Извлечение targetUrl из сессии
-        String submitPageUrl = (String) session.getAttribute("submitPageUrl");
-        model.addAttribute("submitPageUrl", submitPageUrl != null ? submitPageUrl : "URL не доступен");
-
-        // Удаление сообщения и targetUrl из сессии после их использования
-        session.removeAttribute("message");
-        session.removeAttribute("submitPageUrl");
-
-        return "confirmation"; // Имя вашего шаблона для отображения
-    }
-
-    private void addHeader(XWPFDocument document, String header) {
+    private static void addHeader(XWPFDocument document, String header) {
         XWPFParagraph paragraph = document.createParagraph();
         XWPFRun run = paragraph.createRun();
         run.setBold(true);
@@ -511,7 +278,7 @@ public class ResumeController {
     }
 
 
-    private void addTitle(XWPFDocument document, String title) {
+    private static void addTitle(XWPFDocument document, String title) {
         XWPFParagraph paragraph = document.createParagraph();
         XWPFRun run = paragraph.createRun();
         run.setBold(true);
@@ -520,13 +287,13 @@ public class ResumeController {
         //paragraph.createRun().addBreak(); // Добавляем разрыв строки
     }
 
-    private void addContactInfo(XWPFDocument document, Resume resume) {
+    private static void addContactInfo(XWPFDocument document, Resume resume) {
         XWPFParagraph paragraph = document.createParagraph();
         addContactDetail(paragraph, "Телефон:", resume.getPhone());
         addContactDetail(paragraph, "Email:", resume.getEmail());
     }
 
-    private void addContactDetail(XWPFParagraph paragraph, String label, String value) {
+    private static void addContactDetail(XWPFParagraph paragraph, String label, String value) {
         XWPFRun run = paragraph.createRun();
         run.setBold(true); // Жирный шрифт для заголовка
         run.setFontSize(12); // Размер шрифта для заголовка
@@ -538,7 +305,7 @@ public class ResumeController {
         paragraph.setSpacingAfter(0); // Убираем отступ после каждой строки
     }
 
-    private void addSectionTitle(XWPFDocument document, String title, boolean isBold) {
+    private static void addSectionTitle(XWPFDocument document, String title, boolean isBold) {
         XWPFParagraph paragraph = document.createParagraph();
         paragraph.setSpacingAfter(0); // Устанавливаем больший отступ после заголовка
         XWPFRun run = paragraph.createRun();
@@ -547,7 +314,7 @@ public class ResumeController {
         run.setText(title);
     }
 
-    private void addContentToDocument(String content, XWPFDocument document, boolean withBullets) {
+    private static void addContentToDocument(String content, XWPFDocument document, boolean withBullets) {
         // Разделяем контент на строки
         String[] lines = content.split("\n");
 
@@ -567,7 +334,7 @@ public class ResumeController {
         }
     }
 
-    private void addPurposeWorkFromChatGpt(XWPFDocument document, String purposeWork) {
+    private static void addPurposeWorkFromChatGpt(XWPFDocument document, String purposeWork) {
         String[] purposeWorkLines = purposeWork.split("\n");
         int i = 0;
         for (String purposeWorkLine : purposeWorkLines) {
@@ -582,7 +349,7 @@ public class ResumeController {
         }
     }
 
-    private void addEducation(XWPFDocument document, List<Education> educationList) {
+    private static void addEducation(XWPFDocument document, List<Education> educationList) {
         int counter = 1;
         for (Education education : educationList) {
             XWPFParagraph institutionParagraph = document.createParagraph();
@@ -610,7 +377,7 @@ public class ResumeController {
         }
     }
 
-    private void addEducationFromChatGpt(XWPFDocument document, String education) {
+    private static void addEducationFromChatGpt(XWPFDocument document, String education) {
         String[] educationLines = education.split("\n");
         int i = 0;
         for (String education1 : educationLines) {
@@ -632,7 +399,7 @@ public class ResumeController {
         }
     }
 
-    private void addWorkExperience(XWPFDocument document, List<WorkExperience> workExperienceList) {
+    private static void addWorkExperience(XWPFDocument document, List<WorkExperience> workExperienceList) {
         int counter = 1;
         for (WorkExperience work : workExperienceList) {
             XWPFParagraph companyParagraph = document.createParagraph();
@@ -660,7 +427,7 @@ public class ResumeController {
         }
     }
 
-    private void addWorkExperienceFromChatGpt(XWPFDocument document, String workExperience) {
+    private static void addWorkExperienceFromChatGpt(XWPFDocument document, String workExperience) {
         String[] workExperienceLines = workExperience.split("\n");
         int i = 0;
         for (String experience : workExperienceLines) {
@@ -682,7 +449,7 @@ public class ResumeController {
         }
     }
 
-    private void addSkills(XWPFDocument document, String skills) {
+    private static void addSkills(XWPFDocument document, String skills) {
         String[] skillLines = skills.split("\n");
         for (String skill : skillLines) {
             XWPFParagraph paragraph = document.createParagraph();
@@ -692,7 +459,7 @@ public class ResumeController {
         }
     }
 
-    private void addSkillsFromChatGpt(XWPFDocument document, String skills) {
+    private static void addSkillsFromChatGpt(XWPFDocument document, String skills) {
         String[] skillLines = skills.split("\n");
         int i = 0;
         for (String skill : skillLines) {
@@ -707,7 +474,7 @@ public class ResumeController {
         }
     }
 
-    private void addLanguages(XWPFDocument document, String languages) {
+    private static void addLanguages(XWPFDocument document, String languages) {
         String[] languageLines = languages.split(","); // Предполагаем, что языки разделены запятыми
         int i = 0;
         for (String language : languageLines) {
@@ -722,7 +489,7 @@ public class ResumeController {
         }
     }
 
-    private void addLanguagesFromChatGpt(XWPFDocument document, String languages) {
+    private static void addLanguagesFromChatGpt(XWPFDocument document, String languages) {
         String[] languageLines = languages.split("\n");
         int i = 0;
         for (String language : languageLines) {
@@ -737,7 +504,7 @@ public class ResumeController {
         }
     }
 
-    private void addAchievements(XWPFDocument document, String achievements) {
+    private static void addAchievements(XWPFDocument document, String achievements) {
         String[] achievementLines = achievements.split("\n");
         for (String achievement : achievementLines) {
             XWPFParagraph paragraph = document.createParagraph();
@@ -747,7 +514,7 @@ public class ResumeController {
         }
     }
 
-    private void addAchievementsFromChatGpt(XWPFDocument document, String achievements) {
+    private static void addAchievementsFromChatGpt(XWPFDocument document, String achievements) {
         String[] achievementsLines = achievements.split("\n");
         int i = 0;
         for (String achievement : achievementsLines) {
@@ -762,7 +529,7 @@ public class ResumeController {
         }
     }
 
-    private void addAdditionFromChatGpt(XWPFDocument document, String addition) {
+    private static void addAdditionFromChatGpt(XWPFDocument document, String addition) {
         String[] additionLines = addition.split("\n");
         int i = 0;
         int varAfterColon = 0;
@@ -1032,32 +799,12 @@ public class ResumeController {
         return sbExperience.toString();
     }
 
-        private static String transliterate(String input) {
-            StringBuilder output = new StringBuilder();
-            for (char c : input.toCharArray()) {
-                String replacement = transliterationMap.get(c);
-                output.append(replacement != null ? replacement : c);
-            }
-            return output.toString();
+    private static String transliterate(String input) {
+        StringBuilder output = new StringBuilder();
+        for (char c : input.toCharArray()) {
+            String replacement = transliterationMap.get(c);
+            output.append(replacement != null ? replacement : c);
         }
-
-    public static void main(String[] args) {
-        // Поиск раздела "Навыки и способности"
-        //String education = extractEducationSection(ResumeController.responceTimeVar);
-        //String experience = extractExperienceSection(ResumeController.responceTimeVar);
-        //String languages = extractLanguagesSection(ResumeController.responceTimeVar);
-        //String skillsSection = extractSkillsSection(ResumeController.responceTimeVar);
-        //String achievements = extractAchievementsSection(ResumeController.responceTimeVar);
-        //String addition = extractAdditionSection(ResumeController.responceTimeVar);
-        String input = "Привет, как дела?";
-        String transliterated = transliterate(input);
-        System.out.println(transliterated);
-
-        String str = "МАУ";
-        if (str.matches("^[\\p{L} \\-:]+$")) {
-            System.out.println("Строка соответствует условию.");
-        } else {
-            System.out.println("Строка не соответствует условию.");
-        }
+        return output.toString();
     }
 }
